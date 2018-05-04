@@ -1,0 +1,10 @@
+main.c:74:6:log	8	static
+main.c:79:6:logInt	0	static
+main.c:84:6:HAL_UART_RxCpltCallback	4	static
+main.c:106:6:spiTransfer	40	static
+main.c:140:6:FCU_Transmit	24	static
+main.c:148:6:FCU_TransmitSW	24	static
+main.c:157:9:FCU_ReceiveSW	40	static
+main.c:296:6:SystemClock_Config	232	static
+main.c:174:5:main	64	static
+main.c:488:6:_Error_Handler	0	static
