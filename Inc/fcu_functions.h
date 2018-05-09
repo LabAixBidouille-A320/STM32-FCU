@@ -75,7 +75,7 @@ SPI_HandleTypeDef hspi3;
 #define D_ILS 0x02
 #define D_FD 0x01
 
-// Valeurs pour la partie droite à l'adresse 6
+// Valeurs pour la partie droite à l'adresse 8
 #define D_QFE 0x60
 #define D_QNH 0x03
 

@@ -11,8 +11,8 @@ uint8_t no_op = 0x00;
 
 /**
  * Transmettre une donnée à la partie gauche du FCU
- * Paramètres : reg = registre où envoyer la donnée
- * 			    data = valeur à envoyer au registre
+ * Paramètres : reg = registre où envoyer la donnée (Digits 1-4, leds 5, indics 6)
+ * 			    data = valeur à envoyer au registre ( defines dans fcu_functions.h )
  */
 void FCU_Transmit_G(uint8_t reg, uint8_t data)
 {
@@ -24,8 +24,8 @@ void FCU_Transmit_G(uint8_t reg, uint8_t data)
 
 /**
  * Transmettre une donnée à la partie droite du FCU
- * Paramètres : reg = registre où envoyer la donnée
- * 			    data = valeur à envoyer au registre
+ * Paramètres : reg = registre où envoyer la donnée (Digits 1-4, leds 5, indics 8)
+ * 			    data = valeur à envoyer au registre ( defines dans fcu_functions.h )
  */
 void FCU_Transmit_D(uint8_t reg, uint8_t data)
 {
@@ -38,8 +38,8 @@ void FCU_Transmit_D(uint8_t reg, uint8_t data)
 /**
  * Transmettre une donnée à la partie centrale du FCU
  * Paramètres : addr = addresse de la sous partie à controler de 1 à 3 ( 0 = toutes )
- * 				reg = registre où envoyer la donnée
- * 			    data = valeur à envoyer au registre
+ * 				reg = registre où envoyer la donnée (Digits 1-5 (6 pour addr = 1), leds & indics 6-7 (7-8 pour addr = 1))
+ * 			    data = valeur à envoyer au registre ( defines dans fcu_functions.h )
  */
 void FCU_Transmit_C(uint8_t addr, uint8_t reg, uint8_t data)
 {
