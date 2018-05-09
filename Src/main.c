@@ -217,10 +217,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  FCU_Transmit_D(6, C3_LVLCH1);
-	  HAL_Delay(500);
-	  FCU_Transmit_D(7, C3_LVLCH2);
-	  HAL_Delay(500);
 
 	/* for (uint8_t i = 1; i < 7; i++)
 		{
