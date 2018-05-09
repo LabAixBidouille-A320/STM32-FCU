@@ -1,0 +1,5 @@
+fcu_functions.c:17:6:FCU_Transmit_G	16	static
+fcu_functions.c:30:6:FCU_Transmit_D	24	static
+fcu_functions.c:44:6:FCU_Transmit_C	16	static
+fcu_functions.c:59:6:FCU_Affich_Clear	16	static
+fcu_functions.c:83:6:FCU_Affich_Init	8	static

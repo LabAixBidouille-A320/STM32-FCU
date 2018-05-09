@@ -41,16 +41,15 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32l4xx_hal.h"
+#include "fcu_functions.h"
 
 /* USER CODE BEGIN Includes */
-//#define    OPCODEW       (0b01000000)
-//#define    OPCODER       (0b01000001)
+#define    OPCODEW       (0b01000000)
+#define    OPCODER       (0b01000001)
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-SPI_HandleTypeDef hspi3;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -58,7 +57,8 @@ UART_HandleTypeDef huart2;
 
 uint8_t data_receive;
 char Rx_indx, Rx_Buffer[100], buffer[100];
-uint8_t len = 0, Transfer_cplt, Rx_data[2], spidata[16];
+uint8_t noOp = 0; len = 0, Transfer_cplt, Rx_data[2], spidata[16];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -80,6 +80,11 @@ void log(char* str)
 	HAL_UART_Transmit(&huart2, str, strlen(str), 1000);
 }
 
+void logInt(uint8_t * i)
+{
+	HAL_UART_Transmit(&huart2, i, 1, 1000);
+}
+
 // Recevoir une donnée du port série par interruption
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
@@ -98,58 +103,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			Rx_indx = 0;
 			Transfer_cplt = 1;
 		}
-
 		HAL_UART_Receive_IT(&huart2, Rx_data, 1);
 	}
 }
+
 /*
-void spiTransfer(GPIO_TypeDef * port, int pin, int addr, uint8_t opcode, uint8_t data) {
-    //Create an array with the data to shift out
-    int offset=addr*2;
-    int maxbytes=1*2;
-
-    for(int i=0;i<maxbytes;i++)
-        spidata[i]=0;
-    //put our device data into the array
-    spidata[offset+1]=opcode;
-    spidata[offset]=data;
-    //enable the line
-    HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
-
-    //Now shift out the data
-    for(int i=maxbytes;i>0;i--)
-    {
-    	uint8_t j ;
-    	uint8_t transmit;
-
-		for ( j=0 ; j < 8 ; j++ )
-		{
-			transmit = spidata[i-1] & (1 << (7 - j));
-			HAL_SPI_Transmit(&hspi3, &transmit , 1, 1000);
-
-			/* HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, spidata[i-1] & (1 << (7 - j)));
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, 1);
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, 0);
-    	}
-    }
-    //latch the data onto the display
-    HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET);
-
-} */
-
-// Transmettre une donnée au FCU en SPI
-void FCU_Transmit(GPIO_TypeDef * CS_port, int CS_pin, uint8_t reg, uint8_t data)
+void FCU_TransmitSW(uint8_t addr, uint8_t reg, uint8_t data)
 {
-	HAL_GPIO_WritePin(CS_port, CS_pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
-	HAL_SPI_Transmit(&hspi3, &data , 1, 1000);
-	HAL_GPIO_WritePin(CS_port, CS_pin, GPIO_PIN_SET);
-}
-
-/* void FCU_TransmitSW(uint8_t addr, uint8_t reg, uint8_t data)
-{
+	uint8_t final_addr = OPCODEW | (addr << 1);
+	uint8_t nodata = 0x00;
 	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi3, OPCODEW | (addr << 1) , 1, 1000);
+	HAL_SPI_Transmit(&hspi3, &final_addr , 1, 1000);
 	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
 	HAL_SPI_Transmit(&hspi3, &data , 1, 1000);
 	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_SET);
@@ -158,13 +122,15 @@ void FCU_Transmit(GPIO_TypeDef * CS_port, int CS_pin, uint8_t reg, uint8_t data)
 uint8_t FCU_ReceiveSW(uint8_t addr, uint8_t reg, uint8_t data)
 {
 	uint8_t value = 0;
+	uint8_t final_addr = OPCODER | (addr << 1);
 	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi3, OPCODER | (addr <<  1) , 1, 1000);
+	HAL_SPI_Transmit(&hspi3, &final_addr , 1, 1000);
 	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
 	HAL_SPI_TransmitReceive(&hspi3, &data , &value, 1, 1000);
 	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_SET);
 	return value;
-} */
+}
+*/
 /* USER CODE END 0 */
 
 /**
@@ -175,7 +141,7 @@ uint8_t FCU_ReceiveSW(uint8_t addr, uint8_t reg, uint8_t data)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	//uint8_t ad = 0;
+	//uint8_t ad = 0x00;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -199,54 +165,70 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 0x0C, 0x01); // No shutdown
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 0x0B, 0x05); // Scan Limit 0-5
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 0x09, 0x0F); // Decode Mode, digits 3-0
-
-  for(uint8_t i = 1; i < 5; i++)
-  {
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, i, 0x88); // Allumer les digits
-  }
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 5, 0xFF); //Allumer les leds
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 0xFF); // Allumer les voyants
-
-  for(uint8_t i = 0; i < 15; i++)
-  {
-	  HAL_Delay(100);
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 0x0A, i); // Changer l'intensité
-  }
-  for(uint8_t i = 15; i > 0; i--)
-  {
-	  HAL_Delay(100);
-  	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 0x0A, i); // Changer l'intensité
-  }
-  for(uint8_t i = 0; i < 15; i++)
-  {
-	  HAL_Delay(100);
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 0x0A, i); // Changer l'intensité
-  }
-
-  for(uint8_t i = 1; i < 5; i++)
-  {
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, i, 0x0F); // Eteindre les digits
-  }
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 5, 0x00); //Eteindre les leds
-  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 0x00); // Eteindre les voyants
+  HAL_GPIO_WritePin(NSS_Reset_GPIO_Port, NSS_Reset_Pin, GPIO_PIN_RESET);
+  HAL_Delay(1);
+  HAL_GPIO_WritePin(NSS_Reset_GPIO_Port, NSS_Reset_Pin, GPIO_PIN_SET);
+  FCU_Affich_Init();
 
   HAL_Delay(1000);
 
-  /* USER CODE END 2 */
+  FCU_Transmit_G(DECODE_MODE, 0x06);
+  FCU_Transmit_C(1, DECODE_MODE, 0x00);
+  FCU_Transmit_C(2, DECODE_MODE, 0x00);
+  FCU_Transmit_C(3, DECODE_MODE, 0x00);
+  FCU_Transmit_D(DECODE_MODE, 0x0E);
+
+  FCU_Transmit_G(1, 0x0F); //t
+  FCU_Transmit_G(2, 0x0B); //E
+  FCU_Transmit_G(3, 0x05); //S
+  FCU_Transmit_G(4, 0x0F); //t
+
+  FCU_Transmit_C(1, 1, 0x00);
+  FCU_Transmit_C(1, 2, 0b01110111); // A
+  FCU_Transmit_C(1, 3, 0b00111110); // U
+
+  FCU_Transmit_C(1, 4, 0b00001110); // L
+  FCU_Transmit_C(1, 5, 0b01110111); // A
+  FCU_Transmit_C(1, 6, 0b00011111); // b
+
+  FCU_Transmit_C(2, 1, 0x00);
+  FCU_Transmit_C(2, 2, 0b00111101); // d
+  FCU_Transmit_C(2, 3, 0b00111110); // U
+  FCU_Transmit_C(2, 4, 0x00);
+  FCU_Transmit_C(2, 5, 0x00);
+  FCU_Transmit_C(2, 6, 0x00);
+
+  FCU_Transmit_C(3, 1, 0b01000111); // F
+  FCU_Transmit_C(3, 2, 0b01001110); // C
+  FCU_Transmit_C(3, 3, 0b00111110); // U
+  FCU_Transmit_C(3, 4, 0x00);
+  FCU_Transmit_C(3, 5, 0x00);
+  FCU_Transmit_C(3, 6, 0x00);
+
+  FCU_Transmit_D(1, 0b01110111); // A
+  FCU_Transmit_D(2, 3); // 3
+  FCU_Transmit_D(3, 2); // 2
+  FCU_Transmit_D(4, 0); // 0
+
+
+/* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 for (uint8_t i = 1; i < 5; i++)
+	  FCU_Transmit_C(3, 6, C3_LVLCH1);
+	  HAL_Delay(500);
+	  FCU_Transmit_C(3, 7, C3_LVLCH2);
+	  HAL_Delay(500);
+
+	/* for (uint8_t i = 1; i < 7; i++)
 		{
-		  for (uint8_t j = 0; j < 16; j++)
+		  for (uint8_t j = 0; j < 13; j++)
 		  {
 			  HAL_Delay(200);
-			  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, i, j); // Afficher la valeur j sur le digit numero i
+			  //spiTransfer(NSS_AffC_GPIO_Port, NSS_AffC_Pin, 1, i, j);
+			  FCU_Transmit(NSS_AffD_GPIO_Port, NSS_AffD_Pin, i, j); // Afficher la valeur j sur le digit numero i
 		  }
 		}
 	  for (uint8_t i = 1; i < 65; i*=2)
@@ -261,25 +243,36 @@ int main(void)
 	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 96); // Allumer le voyant droit
 	  HAL_Delay(200);
 	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 0); // Eteindre les voyants
+	 */
+	  //if(ad++ == 16)
+		//  ad = 0;
 
 	  /*
-	  FCU_TransmitSW(ad, 0x0A, 0x08);
-	  FCU_TransmitSW(ad, 0x00, 0xFF);
-	  FCU_TransmitSW(ad, 0x01, 0xFF);
-	  FCU_TransmitSW(ad, 0x0C, 0xFF);
-	  FCU_TransmitSW(ad, 0x0D, 0xFF);
+	  log("Pour addr = ");
+	  logInt(&ad);
+
+	    FCU_TransmitSW(ad, 0x0A, 0x28);
+		FCU_TransmitSW(ad, 0x00, 0xFF);
+		FCU_TransmitSW(ad, 0x01, 0xFF);
+		FCU_TransmitSW(ad, 0x02, 0xFF);
+		FCU_TransmitSW(ad, 0x03, 0xFF);
+		FCU_TransmitSW(ad, 0x0C, 0xFF);
+		FCU_TransmitSW(ad, 0x0D, 0xFF);
 
 	  data_receive = FCU_ReceiveSW(ad, 0x12, 0x00);
 
 	  log( "\nGPIOA : ");
-	  log(&data_receive);
+	  logInt(&data_receive);
 	  log( "\n");
 
 	  data_receive = FCU_ReceiveSW(ad, 0x13, 0x00);
 	  log( "\nGPIOB : ");
-	  log(&data_receive);
+	  logInt(&data_receive);
 	  log( "\n");
-	   */
+
+	  if(ad++ == 7)
+		  ad = 0;
+		  */
 
   /* USER CODE END WHILE */
 
@@ -287,7 +280,6 @@ int main(void)
 
   }
   /* USER CODE END 3 */
-
 }
 
 /**
@@ -308,6 +300,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 1;
   RCC_OscInitStruct.PLL.PLLN = 10;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
