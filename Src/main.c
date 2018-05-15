@@ -44,8 +44,9 @@
 #include "fcu_functions.h"
 
 /* USER CODE BEGIN Includes */
-#define    OPCODEW       (0b01000000)
-#define    OPCODER       (0b01000001)
+
+#define LOW 0
+#define HIGH 1
 
 /* USER CODE END Includes */
 
@@ -55,7 +56,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-uint8_t data_receive;
+int data_receive;
 char Rx_indx, Rx_Buffer[100], buffer[100];
 uint8_t noOp = 0; len = 0, Transfer_cplt, Rx_data[2], spidata[16];
 
@@ -75,15 +76,11 @@ static void MX_SPI3_Init(void);
 /* USER CODE BEGIN 0 */
 
 // Afficher sur le port série
-void log(char* str)
+void Serial_Transmit(char* str)
 {
 	HAL_UART_Transmit(&huart2, str, strlen(str), 1000);
 }
 
-void logInt(uint8_t * i)
-{
-	HAL_UART_Transmit(&huart2, i, 1, 1000);
-}
 
 // Recevoir une donnée du port série par interruption
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -107,30 +104,23 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 
-/*
-void FCU_TransmitSW(uint8_t addr, uint8_t reg, uint8_t data)
+// Changer la polarité de l'horloge (Elle doit être à HIGH pour l'afficheur et à LOW pour les switchs)
+int setClockPolarity(int cpol)
 {
-	uint8_t final_addr = OPCODEW | (addr << 1);
-	uint8_t nodata = 0x00;
-	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi3, &final_addr , 1, 1000);
-	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
-	HAL_SPI_Transmit(&hspi3, &data , 1, 1000);
-	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_SET);
+	if(cpol)
+		hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+	else
+		hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+
+	if (HAL_SPI_Init(&hspi3) != HAL_OK)
+	{
+		return 0;
+	}
+	return 1;
 }
 
-uint8_t FCU_ReceiveSW(uint8_t addr, uint8_t reg, uint8_t data)
-{
-	uint8_t value = 0;
-	uint8_t final_addr = OPCODER | (addr << 1);
-	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Transmit(&hspi3, &final_addr , 1, 1000);
-	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
-	HAL_SPI_TransmitReceive(&hspi3, &data , &value, 1, 1000);
-	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_SET);
-	return value;
-}
-*/
+
+
 /* USER CODE END 0 */
 
 /**
@@ -141,7 +131,7 @@ uint8_t FCU_ReceiveSW(uint8_t addr, uint8_t reg, uint8_t data)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	//uint8_t ad = 0x00;
+	uint8_t ad = 0x00;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -210,6 +200,9 @@ int main(void)
   FCU_Transmit_D(3, 2); // 2
   FCU_Transmit_D(4, 0); // 0
 
+  setClockPolarity(LOW);
+  FCU_Switchs_Init();
+
 
 /* USER CODE END 2 */
 
@@ -217,58 +210,21 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  sprintf(buffer,"\nPour l'adresse : %d", ad);
+	  Serial_Transmit(buffer);
 
-	/* for (uint8_t i = 1; i < 7; i++)
-		{
-		  for (uint8_t j = 0; j < 13; j++)
-		  {
-			  HAL_Delay(200);
-			  //spiTransfer(NSS_AffC_GPIO_Port, NSS_AffC_Pin, 1, i, j);
-			  FCU_Transmit(NSS_AffD_GPIO_Port, NSS_AffD_Pin, i, j); // Afficher la valeur j sur le digit numero i
-		  }
-		}
-	  for (uint8_t i = 1; i < 65; i*=2)
-	  {
-		  HAL_Delay(200);
-		  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 5, i); // Transmet la valeur i sur les leds
-	  }
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 5, 0); // Eteindre les leds
+	  data_receive = FCU_ReceiveSW(ad, RGPIOA);
+	  sprintf(buffer,"\nGPIOA : %d", data_receive);
+	  Serial_Transmit(buffer);
 
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 3); // Allumer le voyant gauche
-	  HAL_Delay(200);
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 96); // Allumer le voyant droit
-	  HAL_Delay(200);
-	  FCU_Transmit(NSS_AffG_GPIO_Port, NSS_AffG_Pin, 6, 0); // Eteindre les voyants
-	 */
-	  //if(ad++ == 16)
-		//  ad = 0;
+	  data_receive = FCU_ReceiveSW(ad, RGPIOB);
+	  sprintf(buffer,"\nGPIOB : %d", data_receive);
+	  Serial_Transmit(buffer);
 
-	  /*
-	  log("Pour addr = ");
-	  logInt(&ad);
-
-	    FCU_TransmitSW(ad, 0x0A, 0x28);
-		FCU_TransmitSW(ad, 0x00, 0xFF);
-		FCU_TransmitSW(ad, 0x01, 0xFF);
-		FCU_TransmitSW(ad, 0x02, 0xFF);
-		FCU_TransmitSW(ad, 0x03, 0xFF);
-		FCU_TransmitSW(ad, 0x0C, 0xFF);
-		FCU_TransmitSW(ad, 0x0D, 0xFF);
-
-	  data_receive = FCU_ReceiveSW(ad, 0x12, 0x00);
-
-	  log( "\nGPIOA : ");
-	  logInt(&data_receive);
-	  log( "\n");
-
-	  data_receive = FCU_ReceiveSW(ad, 0x13, 0x00);
-	  log( "\nGPIOB : ");
-	  logInt(&data_receive);
-	  log( "\n");
-
-	  if(ad++ == 7)
+	  if(++ad == 6)
 		  ad = 0;
-		  */
+
+	  HAL_Delay(1000);
 
   /* USER CODE END WHILE */
 
@@ -368,7 +324,6 @@ static void MX_SPI3_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
 }
 
 /* USART2 init function */

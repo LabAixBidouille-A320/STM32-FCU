@@ -10,7 +10,7 @@
 uint8_t no_op = 0x00;
 
 /**
- * Transmettre une donnée à la partie gauche du FCU
+ * Transmettre une donnée aux afficheurs de la partie gauche du FCU
  * Paramètres : reg = registre où envoyer la donnée (Digits 1-4, leds 5, indics 6)
  * 			    data = valeur à envoyer au registre ( defines dans fcu_functions.h )
  */
@@ -23,7 +23,7 @@ void FCU_Transmit_G(uint8_t reg, uint8_t data)
 }
 
 /**
- * Transmettre une donnée à la partie droite du FCU
+ * Transmettre une donnée aux afficheurs de la partie droite du FCU
  * Paramètres : reg = registre où envoyer la donnée (Digits 1-4, leds 5, indics 8)
  * 			    data = valeur à envoyer au registre ( defines dans fcu_functions.h )
  */
@@ -36,7 +36,7 @@ void FCU_Transmit_D(uint8_t reg, uint8_t data)
 }
 
 /**
- * Transmettre une donnée à la partie centrale du FCU
+ * Transmettre une donnée aux afficheurs de la partie centrale du FCU
  * Paramètres : addr = addresse de la sous partie à controler de 1 à 3 ( 0 = toutes )
  * 				reg = registre où envoyer la donnée (Digits 1-5 (6 pour addr = 1), leds & indics 6-7 (7-8 pour addr = 1))
  * 			    data = valeur à envoyer au registre ( defines dans fcu_functions.h )
@@ -79,7 +79,6 @@ void FCU_Affich_Clear()
 /**
  * Teste l'adressage et les registres de chaque partie du FCU en les allumant à tour de rôle
  */
-
 void FCU_Affich_Init()
 {
 	  FCU_Affich_Clear();
@@ -118,4 +117,52 @@ void FCU_Affich_Init()
 	  FCU_Transmit_D(TEST_DISPLAY, 0x01);
 	  HAL_Delay(500);
 	  FCU_Transmit_D(TEST_DISPLAY, 0x00);
+}
+
+/**
+ * Transmettre une donnée aux registres des switchs
+ * Paramètres : addr = addresse physique de la puce (0-5)
+ * 				reg = registre où envoyer la donnée (defines dans fcu_functions.h)
+ * 			    data = valeur à envoyer au registre
+ */
+void FCU_TransmitSW(uint8_t addr, uint8_t reg, uint8_t data)
+{
+	uint8_t final_addr = OPCODEW | (addr << 1u);
+	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_RESET);
+	HAL_SPI_Transmit(&hspi3, &final_addr , 1, 1000);
+	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
+	HAL_SPI_Transmit(&hspi3, &data , 1, 1000);
+	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_SET);
+}
+
+/**
+ * Recevoir une donnée des registres des switchs
+ * Paramètres : addr = addresse physique de la puce (0-5)
+ * 				reg = registre d'où recevoir la donnée (defines dans fcu_functions.h)
+ */
+uint8_t FCU_ReceiveSW(uint8_t addr, uint8_t reg)
+{
+	uint8_t value = 0;
+	uint8_t final_addr = OPCODER | (addr << 1u);
+	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_RESET);
+	HAL_SPI_Transmit(&hspi3, &final_addr , 1, 1000);
+	HAL_SPI_Transmit(&hspi3, &reg , 1, 1000);
+	HAL_SPI_TransmitReceive(&hspi3, &value , &value, 1, 1000);
+	HAL_GPIO_WritePin(NSS_Switch_GPIO_Port, NSS_Switch_Pin, GPIO_PIN_SET);
+	return value;
+}
+
+/**
+ * Initialise les registres des switchs
+ */
+void FCU_Switchs_Init()
+{
+	for(int ad = 0; ad < 6; ad++)
+	{
+		FCU_TransmitSW(ad, IOCON, 0x08);
+		FCU_TransmitSW(ad, IODIRA, 0xFF);
+		FCU_TransmitSW(ad, IODIRB, 0xFF);
+		FCU_TransmitSW(ad, GPPUA, 0xFF);
+		FCU_TransmitSW(ad, GPPUB, 0xFF);
+	}
 }

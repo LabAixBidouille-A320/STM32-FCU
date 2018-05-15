@@ -83,7 +83,8 @@
 
 /* USER CODE BEGIN Private defines */
 
-
+void Serial_Transmit(char* str);
+int setClockPolarity(int cpol);
 
 /* USER CODE END Private defines */
 
