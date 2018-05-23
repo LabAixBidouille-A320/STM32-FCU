@@ -48,6 +48,13 @@
 #define LOW 0
 #define HIGH 1
 
+#define swGauche0 0
+#define swGauche1 1
+#define swCentre0 2
+#define swCentre1 3
+#define swDroite0 4
+#define swDroite1 5
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -57,8 +64,8 @@ UART_HandleTypeDef huart2;
 /* Private variables ---------------------------------------------------------*/
 
 int data_receive;
-char Rx_indx, Rx_Buffer[100], buffer[100];
-uint8_t noOp = 0; len = 0, Transfer_cplt, Rx_data[2], spidata[16];
+char Rx_indx, Rx_Buffer[100], inputByte[15];
+uint8_t noOp = 0; len = 0, Transfer_cplt = 0, Rx_data[2], spidata[16], dataSwitch[6];
 
 /* USER CODE END PV */
 
@@ -76,11 +83,10 @@ static void MX_SPI3_Init(void);
 /* USER CODE BEGIN 0 */
 
 // Afficher sur le port série
-void Serial_Transmit(char* str)
+void Serial_Transmit_Str(char* str)
 {
 	HAL_UART_Transmit(&huart2, str, strlen(str), 1000);
 }
-
 
 // Recevoir une donnée du port série par interruption
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -91,35 +97,64 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		if(Rx_indx==0) {for(i=0; i<100;i++) Rx_Buffer[i]=0;}
 
-		if(Rx_data[0]!=10)
-		{
-			Rx_Buffer[Rx_indx++]=Rx_data[0];
-		}
-		else
-		{
-			Rx_indx = 0;
-			Transfer_cplt = 1;
-		}
-		HAL_UART_Receive_IT(&huart2, Rx_data, 1);
+		Rx_Buffer[Rx_indx++]=Rx_data[0];
+		Transfer_cplt = 1;
+
+
+		//HAL_UART_Receive_IT(&huart2, Rx_data, 1);
 	}
 }
 
-// Changer la polarité de l'horloge (Elle doit être à HIGH pour l'afficheur et à LOW pour les switchs)
-int setClockPolarity(int cpol)
+// Initialise des variables nécessaires aux fonctions
+void Var_Init()
 {
-	if(cpol)
-		hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
-	else
-		hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-
-	if (HAL_SPI_Init(&hspi3) != HAL_OK)
+	for(int i = 0; i < 12; i++)
 	{
-		return 0;
+		diff[i] = 0;
+		turnedSW[i] = 0;
 	}
-	return 1;
+
+	turnedRight = 0;
+	turnedLeft = 0;
+
+	SWS[0] = bitRead(FCU_state[2], 6);
+	SWS[1] = bitRead(FCU_state[2], 5);
+	SWS[2] = bitRead(FCU_state[4], 5);
+	SWS[3] = bitRead(FCU_state[4], 4);
+	SWS[4] = bitRead(FCU_state[4], 1);
+	SWS[5] = bitRead(FCU_state[4], 0);
+	SWS[6] = bitRead(FCU_state[6], 5);
+	SWS[7] = bitRead(FCU_state[6], 4);
+	SWS[8] = bitRead(FCU_state[7], 5);
+	SWS[9] = bitRead(FCU_state[7], 4);
+	SWS[10] = bitRead(FCU_state[10], 3);
+	SWS[11] = bitRead(FCU_state[10], 2);
 }
 
 
+// Renvoie la valeur du bit nb d'un octet
+int bitRead(uint8_t byte, int nb)
+{
+	if(nb > 8 || nb < 0)
+		return -1;
+	return (byte >> nb) & 1;
+}
+
+// Renvoie l'octet en mettant à 1 le bit nb
+int bitSet(uint8_t byte, int nb)
+{
+	if(nb > 8 || nb < 0)
+		return -1;
+	return byte | (1 << nb);
+}
+
+// Renvoie l'octet en mettant à 0 le bit nb
+int bitClear(uint8_t byte, int nb)
+{
+	if(nb > 8 || nb < 0)
+		return -1;
+	return byte & ~(1 << nb);
+}
 
 /* USER CODE END 0 */
 
@@ -131,7 +166,6 @@ int setClockPolarity(int cpol)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint8_t ad = 0x00;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -155,54 +189,16 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_IT(&huart2, Rx_data, 1);
   HAL_GPIO_WritePin(NSS_Reset_GPIO_Port, NSS_Reset_Pin, GPIO_PIN_RESET);
   HAL_Delay(1);
   HAL_GPIO_WritePin(NSS_Reset_GPIO_Port, NSS_Reset_Pin, GPIO_PIN_SET);
   FCU_Affich_Init();
 
-  HAL_Delay(1000);
-
-  FCU_Transmit_G(DECODE_MODE, 0x06);
-  FCU_Transmit_C(1, DECODE_MODE, 0x00);
-  FCU_Transmit_C(2, DECODE_MODE, 0x00);
-  FCU_Transmit_C(3, DECODE_MODE, 0x00);
-  FCU_Transmit_D(DECODE_MODE, 0x0E);
-
-  FCU_Transmit_G(1, 0x0F); //t
-  FCU_Transmit_G(2, 0x0B); //E
-  FCU_Transmit_G(3, 0x05); //S
-  FCU_Transmit_G(4, 0x0F); //t
-
-  FCU_Transmit_C(1, 1, 0x00);
-  FCU_Transmit_C(1, 2, 0b01110111); // A
-  FCU_Transmit_C(1, 3, 0b00111110); // U
-
-  FCU_Transmit_C(1, 4, 0b00001110); // L
-  FCU_Transmit_C(1, 5, 0b01110111); // A
-  FCU_Transmit_C(1, 6, 0b00011111); // b
-
-  FCU_Transmit_C(2, 1, 0x00);
-  FCU_Transmit_C(2, 2, 0b00111101); // d
-  FCU_Transmit_C(2, 3, 0b00111110); // U
-  FCU_Transmit_C(2, 4, 0x00);
-  FCU_Transmit_C(2, 5, 0x00);
-  FCU_Transmit_C(2, 6, 0x00);
-
-  FCU_Transmit_C(3, 1, 0b01000111); // F
-  FCU_Transmit_C(3, 2, 0b01001110); // C
-  FCU_Transmit_C(3, 3, 0b00111110); // U
-  FCU_Transmit_C(3, 4, 0x00);
-  FCU_Transmit_C(3, 5, 0x00);
-  FCU_Transmit_C(3, 6, 0x00);
-
-  FCU_Transmit_D(1, 0b01110111); // A
-  FCU_Transmit_D(2, 3); // 3
-  FCU_Transmit_D(3, 2); // 2
-  FCU_Transmit_D(4, 0); // 0
-
-  setClockPolarity(LOW);
   FCU_Switchs_Init();
-
+  FCU_State_Init(FCU_state);
+  FCU_API_Init();
+  Var_Init();
 
 /* USER CODE END 2 */
 
@@ -210,21 +206,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  sprintf(buffer,"\nPour l'adresse : %d", ad);
-	  Serial_Transmit(buffer);
-
-	  data_receive = FCU_ReceiveSW(ad, RGPIOA);
-	  sprintf(buffer,"\nGPIOA : %d", data_receive);
-	  Serial_Transmit(buffer);
-
-	  data_receive = FCU_ReceiveSW(ad, RGPIOB);
-	  sprintf(buffer,"\nGPIOB : %d", data_receive);
-	  Serial_Transmit(buffer);
-
-	  if(++ad == 6)
-		  ad = 0;
-
-	  HAL_Delay(1000);
+	  FCU_State_Init(FCU_state_temp);
+	  FCU_Transmit_To_Sim();
 
   /* USER CODE END WHILE */
 
@@ -310,7 +293,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
   hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
@@ -331,7 +314,7 @@ static void MX_USART2_UART_Init(void)
 {
 
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 9600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;

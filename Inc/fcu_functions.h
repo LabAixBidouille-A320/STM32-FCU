@@ -8,6 +8,17 @@ SPI_HandleTypeDef hspi3;
 #define HIGH 1
 
 
+uint16_t API_data[12][8];
+uint8_t *turnedRight;
+uint8_t *turnedLeft;
+uint8_t turnedSW[12];
+uint8_t SWS[12];
+uint8_t *SW1;
+uint8_t *SW2;
+uint8_t temp_SW1;
+uint8_t temp_SW2;
+
+
 /* ----- Valeurs nécessaires à l'affichage ----- */
 
 // Modes de registres
@@ -109,4 +120,9 @@ void FCU_Affich_Init();
 void FCU_TransmitSW(uint8_t addr, uint8_t reg, uint8_t data);
 uint8_t FCU_ReceiveSW(uint8_t addr, uint8_t reg);
 void FCU_Switchs_Init();
+void FCU_API_Init();
+void FCU_State_Init();
+int FCU_Check_Changes();
+void FCU_Transmit_To_Sim();
+void FCU_Switch_direction(int i, int j);
 

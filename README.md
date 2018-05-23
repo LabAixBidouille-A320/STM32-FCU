@@ -5,3 +5,4 @@ Ces dossiers contiennent les fichiers de configurations et le code source néces
 * Version 1.0 : Permet de communiquer avec les digits, leds et voyants de la partie gauche du FCU.
 * Version 1.1 : Permet de communiquer avec les digits, leds et voyants de toutes les parties du FCU.
 * Version 1.2 : Ajout de la reception des données des switchs.
+* Version 2.0 : Traitement des données brutes des switchs et envoie des valeurs attendues par le simulateur sur le Port Série
